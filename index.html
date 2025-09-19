@@ -11,8 +11,24 @@
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body { height:100%; font-family:Arial,sans-serif; overflow-x:hidden; color:#fff; }
 
-  /* Background Video */
-  .bg-video { position:fixed; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:-1; }
+  .bg-video, .bg-fallback {
+    position: fixed;
+    top: 0; 
+    left: 0;
+    width: 100%; 
+    height: 100%;
+    object-fit: cover;
+    z-index: -1;
+  }
+
+  .hidden { display: none; }
+
+  .fade-in { animation: fadeIn 1s ease forwards; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
 
   /* Desktop warning */
   @media (min-width:1024px){
@@ -41,46 +57,49 @@
 </head>
 <body class="text-white">
 
-  <!-- Background Video -->
-  <video autoplay muted loop class="bg-video">
-    <source src="assets/background/space.mp4" type="video/mp4">
-  </video>
+<!-- Fallback Background Image -->
+<img id="bgImage" src="assets/background/space-fallback.jpg" alt="Background" class="bg-fallback">
 
-  <!-- Desktop Warning -->
-  <div id="desktop-block" class="hidden fixed inset-0 bg-black text-white flex items-center justify-center text-center z-50">
-    <div>
-      <h1 class="text-3xl font-bold mb-4">📱 Mobile Only</h1>
-      <p class="text-lg">This portal is only available on mobile devices.<br>Please use your phone to continue.</p>
+<!-- Background Video -->
+<video id="bgVideo" autoplay muted loop playsinline class="bg-video hidden" aria-hidden="true">
+  <source src="assets/background/space.mp4" type="video/mp4">
+</video>
+
+<!-- Desktop Warning -->
+<div id="desktop-block" class="hidden fixed inset-0 bg-black text-white flex items-center justify-center text-center z-50">
+  <div>
+    <h1 class="text-3xl font-bold mb-4">📱 Mobile Only</h1>
+    <p class="text-lg">This portal is only available on mobile devices.<br>Please use your phone to continue.</p>
+  </div>
+</div>
+
+<!-- Header with Logo -->
+<header class="flex justify-center mt-4">
+  <img src="assets/icons/logo.png" alt="Logo" class="h-16 w-auto">
+</header>
+
+<!-- Intro Video (YouTube Iframe) -->
+<div class="flex justify-center mt-6 px-4">
+  <iframe 
+    class="w-full max-w-md rounded-lg shadow-lg aspect-video"
+    src="https://www.youtube.com/embed/DLpKgKSWHlk?autoplay=1&mute=1&loop=1&playlist=DLpKgKSWHlk" 
+    title="YouTube video player" 
+    frameborder="0" 
+    allow="autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+    referrerpolicy="strict-origin-when-cross-origin" 
+    allowfullscreen>
+  </iframe>
+</div>
+
+<!-- Apps Section -->
+<div class="apps-section mb-12 mt-8">
+  <div class="swiper">
+    <div class="swiper-wrapper" id="apps-wrapper">
+      <!-- JS will populate slides -->
     </div>
+    <div class="swiper-pagination mt-4"></div>
   </div>
-
-  <!-- Header with Logo -->
-  <header class="flex justify-center mt-4">
-    <img src="assets/icons/logo.png" alt="Logo" class="h-16 w-auto">
-  </header>
-
-  <!-- Intro Video (YouTube Iframe) -->
-  <div class="flex justify-center mt-6 px-4">
-    <iframe 
-      class="w-full max-w-md rounded-lg shadow-lg aspect-video"
-      src="https://www.youtube.com/embed/DLpKgKSWHlk?autoplay=1&mute=1&loop=1&playlist=DLpKgKSWHlk" 
-      title="YouTube video player" 
-      frameborder="0" 
-      allow="autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-      referrerpolicy="strict-origin-when-cross-origin" 
-      allowfullscreen>
-    </iframe>
-  </div>
-
-  <!-- Apps Section -->
-  <div class="apps-section mb-12 mt-8">
-    <div class="swiper">
-      <div class="swiper-wrapper" id="apps-wrapper">
-        <!-- JS will populate slides -->
-      </div>
-      <div class="swiper-pagination mt-4"></div>
-    </div>
-  </div>
+</div>
 
 <!-- Footer Navigation -->
 <div class="flex justify-center items-center mb-6 mt-12 footer-nav">
@@ -92,7 +111,7 @@
     </a>
     
     <!-- Home -->
-    <a href="" target="_blank">
+    <a href="home.html" target="_blank">
       <img id="floatingBtn" src="assets/icons/Home.png" alt="Apps" class="w-24 h-24 cursor-pointer -mt-8 z-10">
     </a>
     
@@ -104,66 +123,85 @@
   </div>
 </div>
 
-
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script>
-async function loadApps() {
-  try {
-    const res = await fetch("assets/data/apps.json");
-    const apps = await res.json();
+  // Service Worker
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js")
+        .then(reg => console.log("✅ Service Worker registered:", reg.scope))
+        .catch(err => console.error("❌ Service Worker registration failed:", err));
+    });
+  }
 
-    const appsWrapper = document.getElementById("apps-wrapper");
-    appsWrapper.innerHTML = "";
+  // Background Video Swap
+  const bgVideo = document.getElementById("bgVideo");
+  const bgImage = document.getElementById("bgImage");
 
-    // Split into chunks of 6 apps per page
-    for (let i = 0; i < apps.length; i += 6) {
-      const pageApps = apps.slice(i, i + 6);
+  bgVideo.addEventListener("canplaythrough", () => {
+    bgImage.style.display = "none";          // hide fallback
+    bgVideo.classList.remove("hidden");      // show video
+    bgVideo.classList.add("fade-in");        // smooth transition
+    bgVideo.play();                          // ensure playback starts
+  });
 
-      // Create slide
-      const slide = document.createElement("div");
-      slide.className = "swiper-slide";
+  // Load Apps
+  async function loadApps() {
+    try {
+      const res = await fetch("assets/data/apps.json");
+      const apps = await res.json();
 
-      // Create grid
-      const grid = document.createElement("div");
-      grid.className = "apps-grid";
+      const appsWrapper = document.getElementById("apps-wrapper");
+      appsWrapper.innerHTML = "";
 
-      // Add apps to grid
-      pageApps.forEach(app => {
-        const appDiv = document.createElement("div");
-        appDiv.className = "text-center";
-        appDiv.innerHTML = `
-          <a href="${app.link}" target="_blank">
-            <img src="${app.icon}" class="app-icon">
-          </a>
-          <p class="app-label">${app.name}</p>
-        `;
-        grid.appendChild(appDiv);
+      // Split into chunks of 6 apps per page
+      for (let i = 0; i < apps.length; i += 6) {
+        const pageApps = apps.slice(i, i + 6);
+
+        // Create slide
+        const slide = document.createElement("div");
+        slide.className = "swiper-slide";
+
+        // Create grid
+        const grid = document.createElement("div");
+        grid.className = "apps-grid";
+
+        // Add apps to grid
+        pageApps.forEach(app => {
+          const appDiv = document.createElement("div");
+          appDiv.className = "text-center";
+          appDiv.innerHTML = `
+            <a href="${app.link}" target="_blank">
+              <img src="${app.icon}" class="app-icon">
+            </a>
+            <p class="app-label">${app.name}</p>
+          `;
+          grid.appendChild(appDiv);
+        });
+
+        slide.appendChild(grid);
+        appsWrapper.appendChild(slide);
+      }
+
+      // Initialize Swiper
+      new Swiper(".swiper", {
+        slidesPerView: 1,
+        spaceBetween: 10,
+        centeredSlides: true,
+        loop: false,
+        pagination: {
+          el: ".swiper-pagination",
+          clickable: true,
+          dynamicBullets: true,
+        },
       });
 
-      slide.appendChild(grid);
-      appsWrapper.appendChild(slide);
+    } catch (err) {
+      console.error("Error loading apps:", err);
     }
-
-    // Initialize Swiper
-    new Swiper(".swiper", {
-      slidesPerView: 1,
-      spaceBetween: 10,
-      centeredSlides: true,
-      loop: false,
-      pagination: {
-        el: ".swiper-pagination",
-        clickable: true,
-        dynamicBullets: true,
-      },
-    });
-
-  } catch (err) {
-    console.error("Error loading apps:", err);
   }
-}
 
-// Load apps when ready
-window.addEventListener("DOMContentLoaded", loadApps);
+  window.addEventListener("DOMContentLoaded", loadApps);
 </script>
 </body>
 </html>
